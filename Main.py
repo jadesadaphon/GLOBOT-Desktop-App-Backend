@@ -13,7 +13,6 @@ logging.basicConfig(level=logging.INFO)
 
 # pyinstaller --onefile Server.py
 
-# Initialize Firebase Admin SDK
 cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
@@ -29,16 +28,13 @@ cursor = connection.cursor()
 
 app = Flask(__name__)
 
-# ฟังก์ชันสำหรับตัดส่วน "data:image/png;base64,"
-def clean_base64_data(img_base64: str) -> str:
-    if img_base64.startswith("data:image/png;base64,"):
-        return img_base64.split("data:image/png;base64,")[1]
-    return img_base64
-
 @app.route("/")
 def home():
     return "Hello, This is the Flask App in IIS Server."
 
+#-----------------------
+# verify route 
+#-----------------------
 @app.route('/verify', methods=['POST'])
 def verify():
     data = request.json
@@ -85,6 +81,9 @@ def verify():
         print(e)
         return jsonify({"error": str(e)}), 401
 
+#-----------------------
+# history route 
+#-----------------------
 @app.route('/history', methods=['POST'])
 def history():
     try:
@@ -133,27 +132,36 @@ def history():
         logging.error(f"Error in /history: {str(e)}")
         return jsonify({"success": False, "message":"Exception","error": str(e)}), 500
 
+@app.route('/history', methods=['GET'])
+def loadhistory():
+    pass
+
+#-----------------------
+# slips route 
+#-----------------------
 @app.route('/slips', methods=['POST'])
 def loadslips():
     try:
-        data = request.json  # รับ JSON payload
+        data = request.json
         file_path = data.get('path')
         if not file_path:
             return jsonify({"error": "Missing 'path' field in JSON"}), 400
 
-        # ตรวจสอบว่าไฟล์มีอยู่หรือไม่
         file = Path(file_path)
         if file.is_file():
-            # อ่านไฟล์และแปลงเป็น Base64
+
             with open(file, "rb") as f:
                 encoded_file = base64.b64encode(f.read()).decode('utf-8')
+
             return jsonify({
                 "success": True,
                 "message": "File exists",
                 "file_path": file_path,
                 "img_base64": encoded_file
             }), 200
+        
         else:
+
             return jsonify({
                 "success": False,
                 "message": "File does not exist",
@@ -163,6 +171,59 @@ def loadslips():
     except Exception as e:
         logging.error(f"Error in /loadslips: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+#-----------------------
+# users route 
+#-----------------------
+@app.route('/users', methods=['POST'])
+def registerUser():
+    try:
+        data = request.json
+
+        _name = data.get('name')
+        _email = data.get('email')
+        _password = data.get('password')
+        _user = data.get('createduser')
+
+        if not _email:
+            return jsonify({
+                "error": "ไม่พบอีเมล (Missing 'email')",
+                "details": "กรุณาระบุฟิลด์ 'email' เพื่อดำเนินการลงทะเบียน (Please provide the 'email' field to register)"
+            }), 400
+
+        if not _password:
+            return jsonify({
+                "error": "ไม่พบรหัสผ่าน (Missing 'password')",
+                "details": "กรุณาระบุฟิลด์ 'password' เพื่อดำเนินการลงทะเบียน (Please provide the 'password' field to register)"
+            }), 400
+
+        firebase_auth = auth.create_user(email=_email, password=_password)
+
+        sql = """INSERT INTO users (uid, name, createdby, updateby) VALUES (?, ?, ?, ?)"""
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql, (firebase_auth.uid, _name, _user, _user))
+            connection.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"ลงทะเบียนผู้ใช้เรียบร้อย (User registered successfully)"
+        }), 200
+
+    except auth.EmailAlreadyExistsError:
+        return jsonify({
+            "success": False,
+            "error": "อีเมลนี้ถูกใช้งานแล้ว (Email already exists)",
+            "details": "ไม่สามารถใช้ที่อยู่อีเมลนี้ในการลงทะเบียนได้ (This email address is already in use)"
+        }), 400
+
+    except Exception as e:
+        logging.error(f"Error in /users [POST]: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": "เกิดข้อผิดพลาดภายในระบบ (Internal Server Error)",
+            "details": f"{str(e)}"
+        }), 500
 
 @app.route('/users', methods=['GET'])
 def loadUsers():
@@ -319,6 +380,9 @@ def updateUser():
             "details": str(e)
         }), 500
 
+#-----------------------
+# credit route 
+#-----------------------
 @app.route('/credit', methods=['PUT'])
 def updateCredit():
     try:
@@ -378,11 +442,12 @@ def updateCredit():
             "details": str(e)
         }), 500
 
-def registerUser():
-    try:
-       pass
-    except Exception as e:
-        pass
+
+# ฟังก์ชันสำหรับตัดส่วน "data:image/png;base64,"
+def clean_base64_data(img_base64: str) -> str:
+    if img_base64.startswith("data:image/png;base64,"):
+        return img_base64.split("data:image/png;base64,")[1]
+    return img_base64
     
 def clean_base64_data(img_base64):
     if ',' in img_base64:
