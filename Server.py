@@ -133,7 +133,7 @@ def history():
         logging.error(f"Error in /history: {str(e)}")
         return jsonify({"success": False, "message":"Exception","error": str(e)}), 500
 
-@app.route('/loadslips', methods=['POST'])
+@app.route('/slips', methods=['POST'])
 def loadslips():
     try:
         data = request.json  # รับ JSON payload
@@ -164,115 +164,225 @@ def loadslips():
         logging.error(f"Error in /loadslips: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/loadusers', methods=['GET'])
+@app.route('/users', methods=['GET'])
 def loadusers():
     search = request.args.get('search')
     searchby = request.args.get('searchby')
-
-    # จำลองการค้นหา
-    users = [
-        {"id": 1, "name": "Alice"},
-        {"id": 2, "name": "Bob"}
-    ]
-
-    print(select_all_users(search,searchby))
-    
-    # กรองตัวอย่าง
-    if search and searchby:
-        users = [u for u in users if str(u.get(searchby, "")).lower() == search.lower()]
-    
-    return jsonify({"success": True, "users": users}), 200
-
-def select_all_users(search, searchby=None):
     try:
-        if searchby == 'uid':
-            sql = """SELECT 
-                        users.id,
-                        users.uid,
-                        users.name,
-                        credits.credit,
-                        user_created_credit.name as credit_created_by,
-                        user_update_credit.name as credit_update_by,
-                        users.enable,
-                        users.blacklist,
-                        user_created.name as user_created_by,
-                        user_update.name as user_update_by,
-                        users.syscreate,
-                        users.sysupdate
-                    FROM
-                        users
-                        LEFT JOIN credits ON credits.userid = users.id
-                        LEFT JOIN users AS user_created_credit ON user_created_credit.id = credits.createdby
-                        LEFT JOIN users AS user_update_credit ON user_update_credit.id = credits.updateby
-                        LEFT JOIN users AS user_created ON user_created.id = users.createdby
-                        LEFT JOIN users AS user_update ON user_update.id = users.updateby
-                    WHERE users.uid LIKE ?"""
-        elif searchby == 'name':
-            sql = """SELECT 
-                        users.id,
-                        users.uid,
-                        users.name,
-                        credits.credit,
-                        user_created_credit.name as credit_created_by,
-                        user_update_credit.name as credit_update_by,
-                        users.enable,
-                        users.blacklist,
-                        user_created.name as user_created_by,
-                        user_update.name as user_update_by,
-                        users.syscreate,
-                        users.sysupdate
-                    FROM
-                        users
-                        LEFT JOIN credits ON credits.userid = users.id
-                        LEFT JOIN users AS user_created_credit ON user_created_credit.id = credits.createdby
-                        LEFT JOIN users AS user_update_credit ON user_update_credit.id = credits.updateby
-                        LEFT JOIN users AS user_created ON user_created.id = users.createdby
-                        LEFT JOIN users AS user_update ON user_update.id = users.updateby
-                    WHERE users.name LIKE ?"""
-        else:
-            # Default: return all users
-            sql = """SELECT 
-                        users.id,
-                        users.uid,
-                        users.name,
-                        credits.credit,
-                        user_created_credit.name as credit_created_by,
-                        user_update_credit.name as credit_update_by,
-                        users.enable,
-                        users.blacklist,
-                        user_created.name as user_created_by,
-                        user_update.name as user_update_by,
-                        users.syscreate,
-                        users.sysupdate
-                    FROM
-                        users
-                        LEFT JOIN credits ON credits.userid = users.id
-                        LEFT JOIN users AS user_created_credit ON user_created_credit.id = credits.createdby
-                        LEFT JOIN users AS user_update_credit ON user_update_credit.id = credits.updateby
-                        LEFT JOIN users AS user_created ON user_created.id = users.createdby
-                        LEFT JOIN users AS user_update ON user_update.id = users.updateby"""
+        with connection.cursor() as cursor:
+            if searchby is not None and search:
+                if searchby == 'uid':
+                    sql = """SELECT 
+                                users.id,
+                                users.uid,
+                                users.name,
+                                credits.credit,
+                                user_created_credit.name as credit_created_by,
+                                user_update_credit.name as credit_update_by,
+                                users.enable,
+                                users.blacklist,
+                                user_created.name as user_created_by,
+                                user_update.name as user_update_by,
+                                users.syscreate,
+                                users.sysupdate
+                            FROM
+                                users
+                                LEFT JOIN credits ON credits.userid = users.id
+                                LEFT JOIN users AS user_created_credit ON user_created_credit.id = credits.createdby
+                                LEFT JOIN users AS user_update_credit ON user_update_credit.id = credits.updateby
+                                LEFT JOIN users AS user_created ON user_created.id = users.createdby
+                                LEFT JOIN users AS user_update ON user_update.id = users.updateby
+                            WHERE users.uid LIKE ?"""
+                elif searchby == 'name':
+                    sql = """SELECT 
+                                users.id,
+                                users.uid,
+                                users.name,
+                                credits.credit,
+                                user_created_credit.name as credit_created_by,
+                                user_update_credit.name as credit_update_by,
+                                users.enable,
+                                users.blacklist,
+                                user_created.name as user_created_by,
+                                user_update.name as user_update_by,
+                                users.syscreate,
+                                users.sysupdate
+                            FROM
+                                users
+                                LEFT JOIN credits ON credits.userid = users.id
+                                LEFT JOIN users AS user_created_credit ON user_created_credit.id = credits.createdby
+                                LEFT JOIN users AS user_update_credit ON user_update_credit.id = credits.updateby
+                                LEFT JOIN users AS user_created ON user_created.id = users.createdby
+                                LEFT JOIN users AS user_update ON user_update.id = users.updateby
+                            WHERE users.name LIKE ?"""
+                else:
+                    return jsonify({
+                        "error": f"Invalid value for 'searchby': '{searchby}'. Expected 'uid' or 'name'."
+                    }), 400
 
-            search = None  # ไม่ใช้พารามิเตอร์
+                cursor.execute(sql, (f'%{search}%',))
+            else:
+                sql = """SELECT 
+                            users.id,
+                            users.uid,
+                            users.name,
+                            credits.credit,
+                            user_created_credit.name as credit_created_by,
+                            user_update_credit.name as credit_update_by,
+                            users.enable,
+                            users.blacklist,
+                            user_created.name as user_created_by,
+                            user_update.name as user_update_by,
+                            users.syscreate,
+                            users.sysupdate
+                        FROM
+                            users
+                            LEFT JOIN credits ON credits.userid = users.id
+                            LEFT JOIN users AS user_created_credit ON user_created_credit.id = credits.createdby
+                            LEFT JOIN users AS user_update_credit ON user_update_credit.id = credits.updateby
+                            LEFT JOIN users AS user_created ON user_created.id = users.createdby
+                            LEFT JOIN users AS user_update ON user_update.id = users.updateby"""
+                cursor.execute(sql)
+
+            columns = [column[0] for column in cursor.description]
+            result = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            return jsonify(result), 200
+    except Exception as e:
+        return jsonify({
+            "error": "An unexpected error occurred while loading users.",
+            "details": str(e)
+        }), 500
+
+@app.route('/users', methods=['PATCH'])
+def updateusers():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({
+                "error": "ไม่พบข้อมูลที่ส่งเข้ามา (Missing JSON body)",
+                "details": "กรุณาส่งข้อมูล JSON ที่ต้องการอัปเดต"
+            }), 400
+
+        _id = data.get('id')
+        _updateby = data.get('updateby')
+
+        if not _id:
+            return jsonify({
+                "error": "ไม่พบ ID ผู้ใช้งาน (Missing 'id')",
+                "details": "ต้องระบุฟิลด์ 'id' เพื่อระบุผู้ใช้ที่ต้องการอัปเดต"
+            }), 400
+
+        if not _updateby:
+            return jsonify({
+                "error": "ไม่พบข้อมูลผู้ทำรายการ (Missing 'updateby')",
+                "details": "ต้องระบุฟิลด์ 'updateby' เพื่อบันทึกว่าใครเป็นผู้แก้ไข"
+            }), 400
+
+        fields = []
+        values = []
+
+        if 'name' in data:
+            fields.append("name = ?")
+            values.append(data['name'])
+
+        if 'enable' in data:
+            fields.append("enable = ?")
+            values.append(data['enable'])
+
+        if 'blacklist' in data:
+            fields.append("blacklist = ?")
+            values.append(data['blacklist'])
+
+        if not fields:
+            return jsonify({
+                "error": "ไม่มีข้อมูลที่สามารถอัปเดตได้",
+                "details": "กรุณาระบุอย่างน้อยหนึ่งฟิลด์จาก: 'name', 'enable', 'blacklist'"
+            }), 400
+
+        fields.append("updateby = ?")
+        values.append(_updateby)
+
+        fields.append("sysupdate = GETDATE()")
+
+        sql = f"UPDATE users SET {', '.join(fields)} WHERE id = ?"
+        values.append(_id)
 
         with connection.cursor() as cursor:
-            if search:
-                cursor.execute(sql, (f"%{search}%",))
-            else:
-                cursor.execute(sql)
-            result = cursor.fetchall()
-            return result
+            cursor.execute(sql, tuple(values))
+            connection.commit()
 
-    except pyodbc.Error as e:
-        print("Database error:", e)
-        return None
+        return jsonify({"message": "อัปเดตข้อมูลผู้ใช้เรียบร้อยแล้ว"}), 200
 
+    except Exception as e:
+        return jsonify({
+            "error": "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์",
+            "details": str(e)
+        }), 500
+
+@app.route('/credit', methods=['PUT'])
+def updatecredit():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({
+                "error": "Missing JSON body. / ไม่พบข้อมูล JSON",
+                "details": "Expected JSON body in request but got none. / โปรดระบุข้อมูลในรูปแบบ JSON มาด้วย"
+            }), 400
+
+        _userid = data.get('userid')
+        _updateby = data.get('updateby')
+
+        if not _userid:
+            return jsonify({
+                "error": "Missing field: 'userid' / ไม่พบฟิลด์ 'userid'",
+                "details": "The 'userid' field is required to identify the credit record. / ต้องระบุ 'userid' เพื่อระบุรายการเครดิตที่ต้องการแก้ไข"
+            }), 400
+
+        if not _updateby:
+            return jsonify({
+                "error": "Missing field: 'updateby' / ไม่พบฟิลด์ 'updateby'",
+                "details": "The 'updateby' field is required to track who updated the record. / ต้องระบุ 'updateby' เพื่อบันทึกว่าใครเป็นผู้ทำรายการแก้ไข"
+            }), 400
+
+        fields = []
+        values = []
+
+        if 'credit' in data:
+            fields.append("credit = ?")
+            values.append(data['credit'])
+
+        if not fields:
+            return jsonify({
+                "error": "No update fields provided. / ไม่มีฟิลด์ข้อมูลสำหรับอัปเดต",
+                "details": "At least the 'credit' field must be included to perform an update. / ต้องมีอย่างน้อยฟิลด์ 'credit' เพื่อดำเนินการอัปเดต"
+            }), 400
+
+        fields.append("updateby = ?")
+        values.append(_updateby)
+        fields.append("sysupdate = GETDATE()")
+
+        sql = f"UPDATE credits SET {', '.join(fields)} WHERE userid = ?"
+        values.append(_userid)
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql, tuple(values))
+            connection.commit()
+
+        return jsonify({
+            "message": "Credit updated successfully. / อัปเดตข้อมูลเครดิตเรียบร้อยแล้ว"
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "error": "An unexpected error occurred while updating credit. / เกิดข้อผิดพลาดขณะอัปเดตข้อมูลเครดิต",
+            "details": str(e)
+        }), 500
 
 def clean_base64_data(img_base64):
     if ',' in img_base64:
         return img_base64.split(',')[1]
     return img_base64
 
-# if __name__ == "__main__":
-#     app.run(host=os.getenv("SERVER_HOST"), port=os.getenv("SERVER_PORT"))
+# flask run --reload
 
 

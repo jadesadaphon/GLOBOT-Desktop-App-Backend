@@ -3,13 +3,14 @@ CacheControl==0.14.3
 cachetools==5.5.2
 certifi==2025.4.26
 cffi==1.17.1
-charset-normalizer==3.4.1
+charset-normalizer==3.4.2
 click==8.1.8
 colorama==0.4.6
-cryptography==44.0.2
+cryptography==44.0.3
+dotenv==0.9.9
 firebase-admin==6.8.0
 Flask==3.1.0
-google-api-core==2.24.2
+google-api-core==2.25.0rc0
 google-api-python-client==2.169.0
 google-auth==2.39.0
 google-auth-httplib2==0.2.0
