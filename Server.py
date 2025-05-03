@@ -1,15 +1,15 @@
 import firebase_admin
-from firebase_admin import credentials, auth, firestore
-from flask import Flask, request, jsonify
-from datetime import datetime
 import base64
 import os
 import pyodbc
-from pathlib import Path
 import logging
+from pathlib import Path
+from firebase_admin import credentials, auth, firestore
+from flask import Flask, request, jsonify
+from datetime import datetime
+from dotenv import load_dotenv
 
 logging.basicConfig(level=logging.INFO)
-
 
 # pyinstaller --onefile Server.py
 
@@ -18,11 +18,13 @@ cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-server = '192.168.10.162'
-database = 'GLOBOT'
-username = 'sa'
-password = 'Admin@1234'
-connection = pyodbc.connect(f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={server};DATABASE={database};UID={username};PWD={password}")
+load_dotenv()
+
+db_host = os.getenv("DB_HOST")
+db_name = os.getenv("DN_NAME")
+db_username = os.getenv("DB_USERNAME")
+db_password = os.getenv("DB_PASSWORD")
+connection = pyodbc.connect(f"DRIVER={{ODBC Driver 17 for SQL Server}};SERVER={db_host};DATABASE={db_name};UID={db_username};PWD={db_password}")
 cursor = connection.cursor()
 
 app = Flask(__name__)
@@ -80,6 +82,7 @@ def verify():
             return jsonify({"message": "Your account has not been activated.", "uid": uid, "verify": False}), 200
 
     except Exception as e:
+        print(e)
         return jsonify({"error": str(e)}), 401
 
 @app.route('/history', methods=['POST'])
@@ -161,12 +164,114 @@ def loadslips():
         logging.error(f"Error in /loadslips: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/loadusers', methods=['GET'])
+def loadusers():
+    search = request.args.get('search')
+    searchby = request.args.get('searchby')
+
+    # จำลองการค้นหา
+    users = [
+        {"id": 1, "name": "Alice"},
+        {"id": 2, "name": "Bob"}
+    ]
+
+    print(select_all_users(search,searchby))
     
+    # กรองตัวอย่าง
+    if search and searchby:
+        users = [u for u in users if str(u.get(searchby, "")).lower() == search.lower()]
+    
+    return jsonify({"success": True, "users": users}), 200
+
+def select_all_users(search, searchby=None):
+    try:
+        if searchby == 'uid':
+            sql = """SELECT 
+                        users.id,
+                        users.uid,
+                        users.name,
+                        credits.credit,
+                        user_created_credit.name as credit_created_by,
+                        user_update_credit.name as credit_update_by,
+                        users.enable,
+                        users.blacklist,
+                        user_created.name as user_created_by,
+                        user_update.name as user_update_by,
+                        users.syscreate,
+                        users.sysupdate
+                    FROM
+                        users
+                        LEFT JOIN credits ON credits.userid = users.id
+                        LEFT JOIN users AS user_created_credit ON user_created_credit.id = credits.createdby
+                        LEFT JOIN users AS user_update_credit ON user_update_credit.id = credits.updateby
+                        LEFT JOIN users AS user_created ON user_created.id = users.createdby
+                        LEFT JOIN users AS user_update ON user_update.id = users.updateby
+                    WHERE users.uid LIKE ?"""
+        elif searchby == 'name':
+            sql = """SELECT 
+                        users.id,
+                        users.uid,
+                        users.name,
+                        credits.credit,
+                        user_created_credit.name as credit_created_by,
+                        user_update_credit.name as credit_update_by,
+                        users.enable,
+                        users.blacklist,
+                        user_created.name as user_created_by,
+                        user_update.name as user_update_by,
+                        users.syscreate,
+                        users.sysupdate
+                    FROM
+                        users
+                        LEFT JOIN credits ON credits.userid = users.id
+                        LEFT JOIN users AS user_created_credit ON user_created_credit.id = credits.createdby
+                        LEFT JOIN users AS user_update_credit ON user_update_credit.id = credits.updateby
+                        LEFT JOIN users AS user_created ON user_created.id = users.createdby
+                        LEFT JOIN users AS user_update ON user_update.id = users.updateby
+                    WHERE users.name LIKE ?"""
+        else:
+            # Default: return all users
+            sql = """SELECT 
+                        users.id,
+                        users.uid,
+                        users.name,
+                        credits.credit,
+                        user_created_credit.name as credit_created_by,
+                        user_update_credit.name as credit_update_by,
+                        users.enable,
+                        users.blacklist,
+                        user_created.name as user_created_by,
+                        user_update.name as user_update_by,
+                        users.syscreate,
+                        users.sysupdate
+                    FROM
+                        users
+                        LEFT JOIN credits ON credits.userid = users.id
+                        LEFT JOIN users AS user_created_credit ON user_created_credit.id = credits.createdby
+                        LEFT JOIN users AS user_update_credit ON user_update_credit.id = credits.updateby
+                        LEFT JOIN users AS user_created ON user_created.id = users.createdby
+                        LEFT JOIN users AS user_update ON user_update.id = users.updateby"""
+
+            search = None  # ไม่ใช้พารามิเตอร์
+
+        with connection.cursor() as cursor:
+            if search:
+                cursor.execute(sql, (f"%{search}%",))
+            else:
+                cursor.execute(sql)
+            result = cursor.fetchall()
+            return result
+
+    except pyodbc.Error as e:
+        print("Database error:", e)
+        return None
+
+
 def clean_base64_data(img_base64):
     if ',' in img_base64:
         return img_base64.split(',')[1]
     return img_base64
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host=os.getenv("SERVER_HOST"), port=os.getenv("SERVER_PORT"))
 
