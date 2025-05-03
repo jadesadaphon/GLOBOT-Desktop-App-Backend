@@ -165,7 +165,7 @@ def loadslips():
         return jsonify({"error": str(e)}), 500
 
 @app.route('/users', methods=['GET'])
-def loadusers():
+def loadUsers():
     search = request.args.get('search')
     searchby = request.args.get('searchby')
     try:
@@ -254,7 +254,7 @@ def loadusers():
         }), 500
 
 @app.route('/users', methods=['PATCH'])
-def updateusers():
+def updateUser():
     try:
         data = request.json
         if not data:
@@ -320,7 +320,7 @@ def updateusers():
         }), 500
 
 @app.route('/credit', methods=['PUT'])
-def updatecredit():
+def updateCredit():
     try:
         data = request.json
         if not data:
@@ -378,6 +378,12 @@ def updatecredit():
             "details": str(e)
         }), 500
 
+def registerUser():
+    try:
+       pass
+    except Exception as e:
+        pass
+    
 def clean_base64_data(img_base64):
     if ',' in img_base64:
         return img_base64.split(',')[1]
