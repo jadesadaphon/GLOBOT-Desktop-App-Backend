@@ -272,6 +272,7 @@ def clean_base64_data(img_base64):
         return img_base64.split(',')[1]
     return img_base64
 
-if __name__ == "__main__":
-    app.run(host=os.getenv("SERVER_HOST"), port=os.getenv("SERVER_PORT"))
+# if __name__ == "__main__":
+#     app.run(host=os.getenv("SERVER_HOST"), port=os.getenv("SERVER_PORT"))
+
 
