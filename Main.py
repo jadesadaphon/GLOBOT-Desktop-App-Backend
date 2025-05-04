@@ -134,7 +134,56 @@ def history():
 
 @app.route('/history', methods=['GET'])
 def loadhistory():
-    pass
+    try:
+        search = request.args.get('search')
+        searchby = request.args.get('searchby')
+        date = request.args.get('date')
+
+        base_sql = """
+            SELECT glohistory.userid,
+                   users.uid,
+                   users.name,
+                   glohistory.image,
+                   glohistory.syscreate
+            FROM glohistory
+            LEFT JOIN users ON users.id = glohistory.userid
+            {where_clause}
+        """
+
+        conditions = []
+        params = []
+
+        if searchby == "name":
+            conditions.append("users.name LIKE ?")
+            params.append(f"%{search}%")
+        elif searchby == "uid":
+            conditions.append("users.uid LIKE ?")
+            params.append(f"%{search}%")
+
+        if date:
+            conditions.insert(0, "CAST(glohistory.syscreate AS DATE) = ?")
+            params.insert(0, date)
+
+        if conditions:
+            where_clause = "WHERE " + " AND ".join(conditions)
+        else:
+            where_clause = ""
+
+        sql = base_sql.format(where_clause=where_clause)
+
+        with connection.cursor() as cursor:
+            cursor.execute(sql, params)
+
+            columns = [column[0] for column in cursor.description]
+            result = [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({
+            "error": "An unexpected error occurred while loading history.",
+            "details": str(e)
+        }), 500
 
 #-----------------------
 # slips route 
@@ -441,7 +490,6 @@ def updateCredit():
             "error": "An unexpected error occurred while updating credit. / เกิดข้อผิดพลาดขณะอัปเดตข้อมูลเครดิต",
             "details": str(e)
         }), 500
-
 
 # ฟังก์ชันสำหรับตัดส่วน "data:image/png;base64,"
 def clean_base64_data(img_base64: str) -> str:
